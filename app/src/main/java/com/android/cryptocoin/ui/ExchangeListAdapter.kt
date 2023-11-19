@@ -10,10 +10,30 @@ import com.android.cryptocoin.ui.viewholder.ExchangeListViewHolder
 class ExchangeListAdapter(shoppingList: List<CryptoItem>?): RecyclerView.Adapter<ExchangeListViewHolder>() {
 
     var shopList: List<CryptoItem>?= null
+    var filteredList: List<CryptoItem>?= null
 
     init {
         shopList = shoppingList
+        filteredList = shoppingList
     }
+
+    fun updateList(newList: MutableList<CryptoItem>) {
+        filteredList = newList
+        notifyDataSetChanged()
+    }
+
+    fun filter(query: String) {
+
+        filteredList = if (query.isEmpty()) {
+            shopList
+        } else {
+            shopList?.filter {
+                it.name.contains(query, true) || it.symbol.contains(query, true)
+            }
+        }
+        notifyDataSetChanged()
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ExchangeListViewHolder {
         val inflater = LayoutInflater.from(parent.context)
         val binding = ItemViewCurrencyBinding.inflate(inflater, parent, false)
@@ -22,12 +42,12 @@ class ExchangeListAdapter(shoppingList: List<CryptoItem>?): RecyclerView.Adapter
 
     override fun getItemCount(): Int {
 
-        return shopList?.size!!
+        return filteredList?.size!!
     }
 
     override fun onBindViewHolder(holder: ExchangeListViewHolder, position: Int) {
 
-        shopList?.let {
+        filteredList?.let {
             holder.bind(it[position])
         }
 

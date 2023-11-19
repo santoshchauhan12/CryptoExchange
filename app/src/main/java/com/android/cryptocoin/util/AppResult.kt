@@ -6,7 +6,7 @@ package com.android.cryptocoin.util
 sealed class AppResult<out T> {
 
     data class Success<out T>(val successData : T) : AppResult<T>()
-    class Error(val exception: java.lang.Exception, val message: String = "something went wrong")
+    class Error(val exception: java.lang.Exception, val message: String ?= null)
         : AppResult<Nothing>()
 
 }

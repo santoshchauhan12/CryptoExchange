@@ -7,6 +7,7 @@ import com.android.cryptocoin.model.bitcoin.CryptoItem
 import com.android.cryptocoin.model.bitcoin.logo.MetaDataResponse
 import com.android.cryptocoin.repository.ExchangeRepository
 import com.android.cryptocoin.util.AppResult
+import com.android.cryptocoin.util.NetworkManager.isOnline
 import com.android.cryptocoin.util.SingleLiveEvent
 import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
@@ -17,73 +18,81 @@ import kotlinx.coroutines.withContext
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
 
-class ExchangeViewModel(): ViewModel(), KoinComponent {
+class ExchangeViewModel: ViewModel(), KoinComponent {
 
-    val exchangeRepository : ExchangeRepository by inject()
-    val errorMessage = MutableLiveData<String>()
-
-    val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
+    private val exchangeRepository : ExchangeRepository by inject()
+    private val exceptionHandler = CoroutineExceptionHandler { _, throwable ->
         onError("Exception handled: ${throwable.localizedMessage}")
     }
     val loading = MutableLiveData<Boolean>()
-
-    var cryptoListJob : Deferred<AppResult<CryptoData>> ?= null
-    var logoUrlJob : Deferred<AppResult<MetaDataResponse>> ?= null
-
+    private var cryptoListJob : Deferred<AppResult<CryptoData>> ?= null
+    private var logoUrlJob : Deferred<AppResult<MetaDataResponse>> ?= null
     var bitCoinListLiveData = MutableLiveData<List<CryptoItem>>()
-//    val showLoading = ObservableBoolean()
-    val showError = SingleLiveEvent<String>()
+    val showError = SingleLiveEvent<String?>()
 
 
     suspend fun getBitCoinList() {
-         cryptoListJob = CoroutineScope(Dispatchers.IO + exceptionHandler).async {
-             getCurrencyList()
-         }
 
-
-        val firstApiResponse = cryptoListJob?.await()
-
-
-
-        val idList: List<String>
-        var idToLogoUrlMap : Map<String, String> ?= null
-
-
-        when(firstApiResponse) {
-            is AppResult.Success -> {
-                idList = firstApiResponse.successData.data.map { it.id }
-                logoUrlJob = CoroutineScope(Dispatchers.IO + exceptionHandler).async {
-                    getLogoUrlList(idList)
-                }
-
-
-                when(val secondApiResponse = logoUrlJob?.await()) {
-
-                    is AppResult.Success -> {
-
-                        idToLogoUrlMap = createIdToLogoUrlMap(secondApiResponse.successData)
-                    }
-
-                    is AppResult.Error -> {
-
-                    }
-
-                    else -> {}
-                }
-                firstApiResponse.successData.data.forEach { item1 ->
-                    val logoUrl = idToLogoUrlMap?.get(item1.id)
-                    logoUrl?.let { item1.logoUrl = it }
-                }
-                bitCoinListLiveData.postValue(firstApiResponse.successData.data)
+        if(isOnline()) {
+            loading.value = true
+            cryptoListJob = CoroutineScope(Dispatchers.IO + exceptionHandler).async {
+                getCurrencyList()
             }
 
-            is AppResult.Error -> {
+            val cryptoListResult = cryptoListJob?.await()
 
+            val idList: List<String>
+            var idToLogoUrlMap: Map<String, String>? = null
+
+
+            when (cryptoListResult) {
+                is AppResult.Success -> {
+                    idList = cryptoListResult.successData.data.map { it.id }
+                    logoUrlJob = CoroutineScope(Dispatchers.IO + exceptionHandler).async {
+                        getLogoUrlList(idList)
+                    }
+
+
+                    when (val logoUrlListResult = logoUrlJob?.await()) {
+
+                        is AppResult.Success -> {
+
+                            idToLogoUrlMap = createIdToLogoUrlMap(logoUrlListResult.successData)
+                            loading.value = false
+                        }
+
+                        is AppResult.Error -> {
+                            loading.value = false
+                            if(logoUrlListResult.message.isNullOrEmpty()) {
+                                showError.postValue(logoUrlListResult.exception.message)
+                            } else {
+                                showError.postValue(logoUrlListResult.message)
+                            }
+                        }
+
+                        else -> {}
+                    }
+                    cryptoListResult.successData.data.forEach { item1 ->
+                        val logoUrl = idToLogoUrlMap?.get(item1.id)
+                        logoUrl?.let { item1.logoUrl = it }
+                    }
+                    bitCoinListLiveData.postValue(cryptoListResult.successData.data)
+                }
+
+                is AppResult.Error -> {
+                    if(cryptoListResult.message.isNullOrEmpty()) {
+                        showError.postValue(cryptoListResult.exception.message)
+                    } else {
+                        showError.postValue(cryptoListResult.message)
+                    }
+                    loading.value = false
+                }
+
+                else -> {}
             }
-
-            else -> {}
+        } else {
+            showError.postValue("check your network connection")
         }
-
 
 
 
@@ -103,19 +112,16 @@ class ExchangeViewModel(): ViewModel(), KoinComponent {
 
 
     private suspend fun getCurrencyList() : AppResult<CryptoData> {
-        val response = exchangeRepository.getCryptoList()
-        return response
+        return exchangeRepository.getCryptoList()
     }
 
     private suspend fun getLogoUrlList(ids: List<String>) : AppResult<MetaDataResponse> {
-        val response = exchangeRepository.getLogoUrlList(ids.joinToString(","))
-        return response
-
+        return exchangeRepository.getLogoUrlList(ids.joinToString(","))
     }
 
     private fun onError(message: String) {
-        errorMessage.postValue(message)
-//        loading.value = false
+        showError.postValue(message)
+        loading.value = false
     }
 
     override fun onCleared() {

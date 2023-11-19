@@ -16,8 +16,8 @@ import retrofit2.converter.gson.GsonConverterFactory
 
 
 class ExchangeRepository {
-    var interceptor =  HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
-    var client: OkHttpClient = OkHttpClient.Builder()
+    private var interceptor =  HttpLoggingInterceptor().setLevel(HttpLoggingInterceptor.Level.BODY)
+    private var client: OkHttpClient = OkHttpClient.Builder()
         .addInterceptor(interceptor)
         .addInterceptor(HeaderInterceptor())
         .build()
@@ -60,16 +60,15 @@ class ExchangeRepository {
 
     suspend fun getLogoUrlList(ids: String): AppResult<MetaDataResponse> {
 
-        var response = service.getMetaDataList(ids)
-        if (response.isSuccessful) {
+        val response = service.getMetaDataList(ids)
+        return if (response.isSuccessful) {
 
             Log.e("cryptocurr", " inside success ")
 
-            return handleSuccess(response)
+            handleSuccess(response)
         } else {
             Log.e("cryptocurr", " inside error ")
-
-            return handleApiError(response)
+            handleApiError(response)
         }
     }
 }

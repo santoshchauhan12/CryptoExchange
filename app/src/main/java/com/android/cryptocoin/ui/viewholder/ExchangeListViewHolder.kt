@@ -18,13 +18,19 @@ class ExchangeListViewHolder(private val binding: ItemViewCurrencyBinding): Recy
 
         if(cryptoItem.quote.USD.volumeChange24h < 0) {
             Utils.setBgViewColor(binding.ivChangeGraph, R.drawable.ic_negative_graph)
+            binding.tvPercentStatus.setTextColor(binding.root.context.resources.getColor(R.color.red))
+            binding.tvPercentStatus.text = Utils.appendPercentUsingInterpolation(Utils.formatDoubleToOneDecimal(
+                cryptoItem.quote.USD.volumeChange24h))
         } else {
             Utils.setBgViewColor(binding.ivChangeGraph, R.drawable.ic_positive_graph)
+            binding.tvPercentStatus.setTextColor(binding.root.context.resources.getColor(R.color.green))
+            binding.tvPercentStatus.text = "+ ".plus(Utils.appendPercentUsingInterpolation(Utils.formatDoubleToOneDecimal(
+                cryptoItem.quote.USD.volumeChange24h)))
+
         }
 
         Glide.with(binding.root.context).load(cryptoItem.logoUrl).into(binding.ivTopCurrencyLogo)
-        binding.tvPrice.text = Utils.prependDollarUsingConcatenation(
-            Utils.formatDoubleToOneDecimal(cryptoItem.quote.USD.price))
+        binding.tvPrice.text = Utils.prependDollarUsingConcatenation(cryptoItem.quote.USD.price.toInt().toString()).plus(" USD")
     }
 
 }

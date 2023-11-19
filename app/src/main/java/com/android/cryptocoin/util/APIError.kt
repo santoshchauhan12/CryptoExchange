@@ -1,5 +1,5 @@
 package com.android.cryptocoin.util
 
-data class APIError(val message: String) {
+data class APIError(var error_message: String) {
     constructor() : this("")
 }
